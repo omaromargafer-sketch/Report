@@ -1,6 +1,6 @@
 {
-  "name": "مفكرة الزيارات",
-  "short_name": "المفكرة",
+  "name": "Report",
+  "short_name": "Report",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "./",
