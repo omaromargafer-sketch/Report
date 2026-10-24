@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d6b5e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>مفكرة الزيارات</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column of visit cards (doctor / pharmacy / warehouse), each with its own mic; the report builds itself underneath. */
+:root {
+  --bg: #eef2f1;
+  --surface: #ffffff;
+  --ink: #12201e;
+  --muted: #5c6e6b;
+  --line: #cfd9d6;
+  --accent: #0d6b5e;
+  --accent-ink: #ffffff;
+  --rec: #c0392b;
+  --font-body: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1a19; --surface: #172624; --ink: #e6efed; --muted: #94a8a4;
+    --line: #2b3f3c; --accent: #3fb9a6; --accent-ink: #062320; --rec: #ef6b5c;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 16px; line-height: 1.7;
+  padding: max(18px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
+.app { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1 { font-size: 1.5rem; font-weight: 600; margin: 0; }
+.sub { color: var(--muted); font-size: 0.9rem; margin: 2px 0 0; }
+.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 380px) { .meta { grid-template-columns: 1fr; } }
+label.l { display: block; font-size: 0.82rem; font-weight: 500; color: var(--muted); margin-bottom: 4px; }
+input, textarea {
+  width: 100%; min-width: 0; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+}
+textarea { resize: vertical; line-height: 1.8; min-height: 110px; }
+input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button {
+  font: inherit; font-weight: 600; border-radius: 8px; padding: 11px 16px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+button.ghost { background: transparent; color: var(--accent); }
+button.danger { background: transparent; color: var(--rec); border-color: var(--rec); }
+button:disabled { opacity: 0.5; cursor: default; }
+.add { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cards { display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.chip { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.03em; padding: 2px 12px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
+.card-head button { padding: 4px 12px; font-size: 0.85rem; }
+.row { display: flex; gap: 8px; align-items: stretch; }
+.mic { padding: 0 14px; min-width: 48px; }
+.mic.on { background: var(--rec); border-color: var(--rec); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.65; } }
+@media (prefers-reduced-motion: reduce) { .mic.on { animation: none; } }
+.say { align-self: flex-start; }
+.interim { min-height: 1.4em; font-size: 0.9rem; color: var(--muted); margin: 0; }
+.msg {
+  position: fixed; z-index: 20; margin: 0; font-size: 0.95rem; color: var(--ink);
+  left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25); max-width: 640px; margin-inline: auto;
+}
+.msg:empty { display: none; }
+.msg.err { color: var(--rec); border-color: var(--rec); }
+.empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; margin: 0; }
+.report-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.report-head h2 { font-size: 1.15rem; margin: 0; }
+pre#preview {
+  margin: 0; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  white-space: pre-wrap; word-break: break-word; font: inherit; min-height: 120px;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.actions .grow { flex: 1 1 140px; }
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <h1>مفكرة الزيارات</h1>
+    <p class="sub">ضيف كارت لكل زيارة، واحكي بصوتك، والتقرير يتجمع لوحده.</p>
+  </header>
+
+  <section class="meta">
+    <div>
+      <label class="l" for="date">تاريخ التقرير</label>
+      <input id="date" type="date">
+    </div>
+    <div>
+      <label class="l" for="area">المنطقة</label>
+      <input id="area" type="text" placeholder="مثال: دمنهور" autocomplete="off">
+    </div>
+  </section>
+
+  <p id="msg" class="msg" role="status" aria-live="polite"></p>
+
+  <section class="add" aria-label="إضافة زيارة">
+    <button type="button" data-add="doctor">+ دكتور</button>
+    <button type="button" data-add="pharmacy">+ صيدلية</button>
+    <button type="button" data-add="warehouse">+ مخزن</button>
+  </section>
+
+  <section id="cards" class="cards"></section>
+
+  <section>
+    <div class="report-head">
+      <h2>التقرير</h2>
+      <span id="counts" class="sub"></span>
+    </div>
+    <pre id="preview"></pre>
+    <div class="actions" style="margin-top:12px">
+      <button id="copy" class="grow" type="button">نسخ التقرير</button>
+      <button id="share" class="ghost grow" type="button" hidden>مشاركة</button>
+      <button id="reset" class="danger" type="button">تقرير جديد</button>
+    </div>
+  </section>
+</main>
+
+<script id="core">
+/* CORE:START */
+var AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+function toArDigits(s) { return String(s).replace(/[0-9]/g, function (d) { return AR_DIGITS.charAt(+d); }); }
+function clean(s) { return String(s == null ? "" : s).replace(/\s*\n\s*/g, " ").replace(/\s{2,}/g, " ").trim(); }
+function fmtDate(v) { if (!v) return ""; var p = String(v).split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : ""; }
+function doctorName(n) {
+  n = clean(n); if (!n) return "";
+  return "د. " + n.replace(/^(?:د\.\s*|د\s+|دكتور(?:ة)?\s+)/, "");
+}
+function pharmacyName(n) {
+  n = clean(n); if (!n) return "";
+  return "ص " + n.replace(/^(?:ص\.?\s+|صيدلية\s+)/, "");
+}
+function warehouseName(n) {
+  n = clean(n); if (!n) return "";
+  return "مخزن " + n.replace(/^(?:م\.?\s+|مخزن\s+)/, "");
+}
+function buildReport(st) {
+  var groups = { doctor: [], pharmacy: [], warehouse: [] };
+  (st.cards || []).forEach(function (c) {
+    var nm = clean(c.name); if (!nm) return;
+    var title;
+    if (c.type === "doctor") { title = (clean(c.clinic) ? clean(c.clinic) + " " : "") + doctorName(nm); }
+    else if (c.type === "pharmacy") { title = pharmacyName(nm); }
+    else { title = warehouseName(nm); }
+    var notes = toArDigits(String(c.notes || "").split("\n").map(function (l) { return clean(l); }).filter(Boolean).join("\n"));
+    groups[c.type === "doctor" || c.type === "pharmacy" ? c.type : "warehouse"].push(notes ? title + "\n" + notes : title);
+  });
+  var blocks = groups.doctor.concat(groups.pharmacy, groups.warehouse);
+  var counts = { doctor: groups.doctor.length, pharmacy: groups.pharmacy.length, warehouse: groups.warehouse.length };
+  if (!blocks.length) return { text: "", counts: counts };
+  var head = "Report " + fmtDate(st.date);
+  if (clean(st.area)) head += "\n" + clean(st.area);
+  var foot = ["الزيارات " + toArDigits(counts.doctor), "الصيدليات " + toArDigits(counts.pharmacy)];
+  if (counts.warehouse) foot.push("مخازن " + toArDigits(counts.warehouse));
+  return { text: head + "\n\n" + blocks.join("\n\n") + "\n------\n" + foot.join("\n"), counts: counts };
+}
+/* CORE:END */
+</script>
+
+<script>
+(function () {
+  var KEY = "mofakkera_v1";
+  var $ = function (id) { return document.getElementById(id); };
+  var TYPES = { doctor: "دكتور", pharmacy: "صيدلية", warehouse: "مخزن" };
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var state = { date: "", area: "", cards: [] };
+  var currentMic = null;
+  var msgTimer = null;
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function today() { var t = new Date(); return t.getFullYear() + "-" + pad(t.getMonth() + 1) + "-" + pad(t.getDate()); }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function loadState() {
+    try { var s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && Array.isArray(s.cards)) state = s; } catch (e) {}
+    if (!state.date) state.date = today();
+  }
+  function say(text, isErr, keep) {
+    var m = $("msg"); m.textContent = text || ""; m.className = "msg" + (isErr ? " err" : "");
+    clearTimeout(msgTimer);
+    if (text && !keep) msgTimer = setTimeout(function () { m.textContent = ""; }, 6000);
+  }
+  function uid() { return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  var MIC_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>';
+  var ERR = {
+    "not-allowed": "كروم رفض المايك. غالبًا لأن الملف مفتوح من الجهاز مش من موقع https. ارفعه على استضافة مجانية وافتحه من الرابط، أو اسمح بالمايك من إعدادات كروم > إعدادات الموقع.",
+    "service-not-allowed": "كروم رفض المايك. غالبًا لأن الملف مفتوح من الجهاز مش من موقع https. ارفعه على استضافة مجانية وافتحه من الرابط، أو اسمح بالمايك من إعدادات كروم > إعدادات الموقع.",
+    "network": "التعرف على الصوت محتاج إنترنت. اتأكد إنك متصل.",
+    "language-not-supported": "المتصفح ده مش بيدعم العربي المصري للصوت. جرب كروم.",
+    "audio-capture": "المايك مش شغال. اتأكد إن تطبيق تاني مش مستخدمه."
+  };
+
+  function attachMic(btn, field, interimEl, onChange) {
+    var rec = null, active = false, quiet = 0;
+    var api = { stop: stop };
+    function ui(on) {
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      var lab = btn.querySelector(".lab"); if (lab) lab.textContent = on ? "إيقاف" : "اتكلم";
+    }
+    function stop() {
+      active = false;
+      if (rec) { try { rec.stop(); } catch (e) {} }
+      ui(false); interimEl.textContent = "";
+      if (currentMic === api) currentMic = null;
+    }
+    function run() {
+      rec = new SR();
+      rec.lang = "ar-EG"; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 1;
+      rec.onresult = function (e) {
+        var fin = "", interim = "";
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) fin += e.results[i][0].transcript; else interim += e.results[i][0].transcript;
+        }
+        if (fin.trim()) {
+          quiet = 0;
+          var v = field.value;
+          field.value = (v && !/\s$/.test(v) ? v + " " : v) + fin.trim();
+          interimEl.textContent = ""; onChange();
+        } else { interimEl.textContent = interim; }
+      };
+      rec.onerror = function (e) {
+        if (e.error === "no-speech") {
+          quiet++;
+          if (quiet >= 3) { stop(); say("مسمعتش صوت. دوس اتكلم وكمّل."); }
+          return;
+        }
+        if (e.error === "aborted") return;
+        stop(); say((ERR[e.error] || "مشكلة في المايك.") + " (" + e.error + ")", true, true);
+      };
+      rec.onend = function () { if (active) setTimeout(function () { if (active) run(); }, 150); };
+      try { rec.start(); } catch (e) { stop(); }
+    }
+    btn.addEventListener("click", function () {
+      if (active) { stop(); return; }
+      if (currentMic) currentMic.stop();
+      currentMic = api; active = true; quiet = 0; ui(true); say("");
+      run();
+    });
+    if (!SR) btn.hidden = true;
+  }
+
+  function micButton(withLabel) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "mic" + (withLabel ? " say" : "");
+    b.setAttribute("aria-pressed", "false");
+    b.innerHTML = MIC_SVG + (withLabel ? '<span class="lab">اتكلم</span>' : "");
+    if (!withLabel) b.setAttribute("aria-label", "قول الاسم بالصوت");
+    return b;
+  }
+  function labelled(text, forId) {
+    var l = document.createElement("label"); l.className = "l"; l.textContent = text; l.htmlFor = forId; return l;
+  }
+
+  function renderCards() {
+    if (currentMic) currentMic.stop();
+    var host = $("cards"); host.innerHTML = "";
+    if (!state.cards.length) {
+      var p = document.createElement("p"); p.className = "empty";
+      p.textContent = "لسه مفيش زيارات. دوس + دكتور أو + صيدلية وابدأ احكي.";
+      host.appendChild(p); return;
+    }
+    state.cards.forEach(function (c) {
+      var card = document.createElement("article"); card.className = "card";
+
+      var head = document.createElement("div"); head.className = "card-head";
+      var chip = document.createElement("span"); chip.className = "chip"; chip.textContent = TYPES[c.type] || "زيارة";
+      var del = document.createElement("button"); del.type = "button"; del.className = "danger"; del.textContent = "حذف";
+      var delTimer;
+      del.addEventListener("click", function () {
+        if (del.dataset.sure) {
+          state.cards = state.cards.filter(function (x) { return x.id !== c.id; });
+          save(); renderCards(); update(); return;
+        }
+        del.dataset.sure = "1"; del.textContent = "تأكيد الحذف";
+        delTimer = setTimeout(function () { delete del.dataset.sure; del.textContent = "حذف"; }, 3000);
+      });
+      head.appendChild(chip); head.appendChild(del); card.appendChild(head);
+
+      if (c.type === "doctor") {
+        var cd = document.createElement("div");
+        var clinic = document.createElement("input"); clinic.type = "text"; clinic.id = "cl-" + c.id; clinic.dir = "rtl";
+        clinic.placeholder = "مثال: اليكس بولي أو ديرما ألين"; clinic.value = c.clinic || ""; clinic.autocomplete = "off";
+        clinic.addEventListener("input", function () { c.clinic = clinic.value; save(); update(); });
+        cd.appendChild(labelled("المكان (لو في عيادة أو مركز)", clinic.id)); cd.appendChild(clinic); card.appendChild(cd);
+      }
+
+      var nd = document.createElement("div");
+      var nrow = document.createElement("div"); nrow.className = "row";
+      var name = document.createElement("input"); name.type = "text"; name.id = "nm-" + c.id; name.dir = "rtl"; name.autocomplete = "off";
+      name.placeholder = c.type === "doctor" ? "اسم الدكتور" : (c.type === "pharmacy" ? "اسم الصيدلية" : "اسم المخزن");
+      name.value = c.name || "";
+      var nameInterim = document.createElement("p"); nameInterim.className = "interim";
+      var onName = function () { c.name = name.value; save(); update(); };
+      name.addEventListener("input", onName);
+      var nmic = micButton(false);
+      attachMic(nmic, name, nameInterim, onName);
+      nrow.appendChild(name); nrow.appendChild(nmic);
+      nd.appendChild(labelled("الاسم", name.id)); nd.appendChild(nrow); nd.appendChild(nameInterim);
+      card.appendChild(nd);
+
+      var td = document.createElement("div");
+      var notes = document.createElement("textarea"); notes.id = "nt-" + c.id; notes.dir = "rtl";
+      notes.placeholder = "اللي حصل في الزيارة، أو الستوك والحركة للصيدلية (مثال: الفيرلاين موجود 6 طلع 3)";
+      notes.value = c.notes || "";
+      var notesInterim = document.createElement("p"); notesInterim.className = "interim";
+      var onNotes = function () { c.notes = notes.value; save(); update(); };
+      notes.addEventListener("input", onNotes);
+      var nbtn = micButton(true);
+      attachMic(nbtn, notes, notesInterim, onNotes);
+      td.appendChild(labelled("الزيارة", notes.id)); td.appendChild(notes); td.appendChild(notesInterim); td.appendChild(nbtn);
+      card.appendChild(td);
+
+      host.appendChild(card);
+    });
+  }
+
+  function update() {
+    var r = buildReport(state);
+    var pv = $("preview");
+    pv.textContent = r.text || "التقرير هيظهر هنا أول ما تكتب اسم زيارة.";
+    $("counts").textContent = r.text ? ("دكتور " + r.counts.doctor + " · صيدلية " + r.counts.pharmacy + (r.counts.warehouse ? " · مخزن " + r.counts.warehouse : "")) : "";
+    $("copy").disabled = !r.text; $("share").disabled = !r.text;
+  }
+
+  function addCard(type) {
+    var c = { id: uid(), type: type, clinic: "", name: "", notes: "" };
+    state.cards.push(c); save(); renderCards(); update();
+    var el = document.getElementById("nm-" + c.id);
+    if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus({ preventScroll: true }); }
+  }
+
+  document.querySelectorAll("[data-add]").forEach(function (b) {
+    b.addEventListener("click", function () { addCard(b.getAttribute("data-add")); });
+  });
+  $("date").addEventListener("input", function () { state.date = this.value; save(); update(); });
+  $("area").addEventListener("input", function () { state.area = this.value; save(); update(); });
+
+  $("copy").addEventListener("click", function () {
+    var text = buildReport(state).text; if (!text) return;
+    function fallback() {
+      var ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      say(ok ? "اتنسخ." : "مقدرتش أنسخ. حدد النص اللي تحت وانسخه بإيدك.", !ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { say("اتنسخ."); }, fallback);
+    } else { fallback(); }
+  });
+
+  if (navigator.share) {
+    $("share").hidden = false;
+    $("share").addEventListener("click", function () {
+      var text = buildReport(state).text; if (!text) return;
+      navigator.share({ text: text }).catch(function () {});
+    });
+  }
+
+  var resetTimer;
+  $("reset").addEventListener("click", function () {
+    var b = this;
+    if (b.dataset.sure) {
+      clearTimeout(resetTimer); delete b.dataset.sure; b.textContent = "تقرير جديد";
+      state.cards = []; state.date = today(); save();
+      $("date").value = state.date; renderCards(); update(); say("بدأنا تقرير جديد.");
+      return;
+    }
+    b.dataset.sure = "1"; b.textContent = "اضغط تاني للتأكيد";
+    resetTimer = setTimeout(function () { delete b.dataset.sure; b.textContent = "تقرير جديد"; }, 3000);
+  });
+
+  $("msg").addEventListener("click", function () { say(""); });
+  loadState();
+  $("date").value = state.date; $("area").value = state.area || "";
+  if (!SR) say("المتصفح ده مش بيدعم المايك. افتح الملف في كروم على أندرويد، وتقدر تكتب بإيدك في الأول.", true, true);
+  renderCards(); update();
+})();
+</script>
+</body>
+</html>
