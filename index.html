@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Report</title>
+<title>مفكرة الزيارات</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
 <style>
 /* Layout: one column of visit cards (doctor / pharmacy / warehouse), each with its own mic; the report builds itself underneath. */
@@ -90,14 +90,20 @@ pre#preview {
 }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .actions .grow { flex: 1 1 140px; }
+.tolink { display: flex; align-items: center; justify-content: space-between; text-decoration: none;
+  background: var(--surface); color: var(--accent); border: 1.5px solid var(--accent);
+  border-radius: 8px; padding: 11px 14px; font-weight: 600; font-size: 1rem; }
+.tolink:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 </style>
 </head>
 <body>
 <main class="app">
   <header>
-    <h1>التقرير</h1>
+    <h1>مفكرة الزيارات</h1>
     <p class="sub">ضيف كارت لكل زيارة، واحكي بصوتك، والتقرير يتجمع لوحده.</p>
   </header>
+
+  <a class="tolink" href="makhazen.html"><span>حساب المخازن</span><span aria-hidden="true">‹</span></a>
 
   <section class="meta">
     <div>

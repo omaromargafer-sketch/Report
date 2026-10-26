@@ -1,5 +1,5 @@
-var CACHE = "mofakkera-v1";
-var SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+var CACHE = "mofakkera-v2";
+var SHELL = ["./", "index.html", "makhazen.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
 });
